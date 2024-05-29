@@ -1,0 +1,43 @@
+---
+version: "3.9"
+
+services:
+  base:
+    image: python
+    build:
+      dockerfile: docker/base.Dockerfile
+      context: "."
+  redis:
+    container_name: redis
+    image: "redis:7.0.5-alpine"
+    ports:
+      - 6379:6379
+  triton:
+    container_name: triton
+    image: triton
+    build:
+      dockerfile: docker/triton.Dockerfile
+      context: "."
+      args:
+        MODELS_FOLDER: models_storage/
+    ports:
+      - 1300:8000
+      - 1301:8001
+      - 1302:8002
+  api:
+    container_name: api
+    image: api
+    build:
+      dockerfile: docker/api.Dockerfile
+      context: "."
+      args:
+        BASE_IMAGE: python
+    ports:
+      - 1303:1303
+    environment:
+      - PORT=1303
+      - TRITON_URL=http://triton:8000
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+      - triton
