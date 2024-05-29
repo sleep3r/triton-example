@@ -6,7 +6,7 @@ from server.api import register_routes
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="HSE-RecSys Server")
+    app = FastAPI(title="Inference API")
     register_routes(app)
     return app
 
@@ -14,6 +14,4 @@ def create_app() -> FastAPI:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        create_app(), host="0.0.0.0", port=int(os.getenv("PORT", "1234")), debug=True
-    )
+    uvicorn.run(create_app(), host="0.0.0.0", port=int(os.getenv("PORT", "1234")))

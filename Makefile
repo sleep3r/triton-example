@@ -9,7 +9,7 @@ install:
 
 fastapi:
 	@echo "[ \033[00;32mStarting service\033[0m ]"
-	@. $(DIR)/$(VENV)/bin/activate && uvicorn --host 0.0.0.0 --port $(PORT) "server.main:create_app"
+	@uvicorn --host 0.0.0.0 --port $(PORT) "server.main:create_app"
 
 server-kill:
 	@docker-compose kill
@@ -19,7 +19,6 @@ server-start: server-kill
 	@echo "[ \033[00;32mRunning in docker-compose\033[0m ]"
 	@docker-compose build --pull base
 	@docker-compose up --build --force-recreate --remove-orphans -d redis triton api
-
 
 format:  ## Format
 	@isort ./server

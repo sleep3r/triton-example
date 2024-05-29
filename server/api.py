@@ -10,7 +10,7 @@ from server.metrics import LATENCY, REDIS_HITS, REDIS_MISS, REQUESTS, get_metric
 from server.triton import TritonClient
 
 
-class RecommendationsResponse(BaseModel):
+class ModelResponse(BaseModel):
     status: str = Field(
         default="success", description="Request status: success, error."
     )
@@ -19,7 +19,7 @@ class RecommendationsResponse(BaseModel):
         description="Response message. It is present if an error occurs.",
     )
     payload: list[int] = Field(
-        default=[], description="List of recommendations for user."
+        default=[], description="Predicted class."
     )
 
 
@@ -28,40 +28,41 @@ def health() -> Response:
 
 
 @LATENCY.time()
-def recommendations(
-    model: str,
-    user_id: int,
+def predict(
     response: Response,
     redis: Redis | None = Depends(get_redis),
     get_triton_model: Callable[[str], TritonClient | None] = Depends(get_triton),
-) -> RecommendationsResponse:
+) -> ModelResponse:
     REQUESTS.inc()
     # 0. Check Redis and Triton
     if redis is None:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return RecommendationsResponse(status="error", message="redis unavailable")
-    triton_model = get_triton_model(model)
+        return ModelResponse(status="error", message="redis unavailable")
+
+    triton_model = get_triton_model("clf")
     if triton_model is None:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return RecommendationsResponse(status="error", message="triton unavailable")
+        return ModelResponse(status="error", message="triton unavailable")
+
     # 1. Check saved predictions in Redis
-    redis_key = f"recs:{model}:{user_id}"
+    redis_key = "123"
     recs = redis.lrange(redis_key, 0, -1)
     if len(recs) > 0:
         REDIS_HITS.inc()
-        return RecommendationsResponse(payload=recs)
+        return ModelResponse(payload=recs)
+
     # 2. Get recommendations from Triton model and save them
     REDIS_MISS.inc()
-    output = triton_model.predict({"users": np.array([[user_id]])})
-    recs = output.get("recommendations")
+    output = triton_model.predict({"users": np.array([[]])})
+    recs = output.get("output_class")
     if recs is None:
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return RecommendationsResponse(
+        return ModelResponse(
             status="error", message="triton failed to process request"
         )
     recs = recs[0, :10].tolist()
     redis.rpush(redis_key, *recs)
-    return RecommendationsResponse(payload=recs)
+    return ModelResponse(payload=recs)
 
 
 def register_routes(app: FastAPI) -> None:
@@ -72,9 +73,9 @@ def register_routes(app: FastAPI) -> None:
     )
     # Recommendation calls
     app.add_api_route(
-        "/recommendations/{model}/{user_id}",
-        recommendations,
+        "/predict",
+        predict,
         methods=["GET"],
-        description="Get recommendations for user by user_id with model.",
-        response_model=RecommendationsResponse,
+        description="Get prediction from the model.",
+        response_model=ModelResponse,
     )
