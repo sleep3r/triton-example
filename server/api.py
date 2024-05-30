@@ -68,9 +68,7 @@ def predict(
 def register_routes(app: FastAPI) -> None:
     # System information.
     app.add_api_route("/health", health, methods=["GET"], description="I'm alive!!!!")
-    app.add_api_route(
-        "/metrics", get_metrics, methods=["GET"], description="Get server metrics."
-    )
+    # app.add_api_route("/metrics", get_metrics, methods=["GET"], description="Get server metrics.")
     # Recommendation calls
     app.add_api_route(
         "/predict",

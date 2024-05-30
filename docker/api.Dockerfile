@@ -3,7 +3,8 @@ ARG BASE_IMAGE
 # Configure dependencies
 FROM ${BASE_IMAGE} as venv
 WORKDIR /home/src
-COPY poetry.lock pyproject.toml Makefile /home/src/
+COPY pyproject.toml Makefile /home/src/
+
 RUN make install
 
 # Production build

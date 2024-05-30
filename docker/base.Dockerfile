@@ -5,8 +5,7 @@ WORKDIR /home/src
 ARG POETRY_HOME=/etc/poetry
 ENV PATH=${POETRY_HOME}/bin:${PATH}
 
-RUN mkdir -p /home/src \
-    && apt-get update || true \
+RUN apt-get update || true \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         apt-utils software-properties-common build-essential bash-completion ca-certificates \
         htop vim gawk telnet tmux git tig screen openssh-client wget curl cmake unzip gcc \
