@@ -1,14 +1,18 @@
+version: '2'
+
 services:
   base:
     image: python
     build:
       dockerfile: docker/base.Dockerfile
       context: "."
+
   redis:
     container_name: redis
     image: "redis:7.0.5-alpine"
     ports:
       - 6379:6379
+
   triton:
     container_name: triton
     image: triton
@@ -21,6 +25,7 @@ services:
       - 1300:8000
       - 1301:8001
       - 1302:8002
+
   api:
     container_name: api
     image: api
