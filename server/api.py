@@ -66,6 +66,7 @@ async def predict(
             return ModelResponse(status="error", message="Triton failed to process request")
 
         await redis.rpush(redis_key, predict)
+        print(predict)
         return ModelResponse(payload=predict)
 
     except Exception as e:
