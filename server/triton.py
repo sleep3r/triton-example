@@ -1,13 +1,13 @@
-import ssl
 from dataclasses import dataclass, field
 from pathlib import Path
+import ssl
 from typing import Optional, Type, Union
 from urllib.parse import ParseResult, urlparse
 
+from loguru import logger
 import numpy as np
 import tritonclient.grpc as triton_grpc
 import tritonclient.http as triton_http
-from loguru import logger
 
 
 @dataclass
