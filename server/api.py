@@ -24,6 +24,7 @@ class CVResponse(BaseModel):
 
 async def predict(
         response: Response,
+        model: str = "mnist",
         image: UploadFile = File(...),
         redis: Redis = Depends(get_redis),
         get_triton_model: Callable[[str], Union[TritonClient, None]] = Depends(get_triton),
@@ -32,7 +33,7 @@ async def predict(
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return CVResponse(status="error", message="Redis unavailable")
 
-    triton_model = get_triton_model("clf")
+    triton_model = get_triton_model(model)
     if triton_model is None:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return CVResponse(status="error", message="Triton unavailable")
