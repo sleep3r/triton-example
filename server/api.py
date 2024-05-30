@@ -45,7 +45,6 @@ async def predict(
     # Check saved predictions in Redis
     probas = redis.lrange(redis_key, 0, -1)
     if probas:
-        # REDIS_HITS.inc()
         probas = [float(x) for x in probas]  # Convert Redis records to float
         return CVResponse(payload=probas)
 
