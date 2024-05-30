@@ -3,10 +3,10 @@ from typing import Callable, Union
 
 from PIL import Image
 from fastapi import Depends, FastAPI, File, Response, UploadFile, status
+from loguru import logger
 import numpy as np
 from pydantic import BaseModel, Field
 from redis import Redis
-from loguru import logger
 
 from server.deps import get_redis, get_triton
 from server.triton import TritonClient
@@ -23,17 +23,17 @@ class CVResponse(BaseModel):
 
 
 async def predict(
-        response: Response,
-        model: str = "mnist",
-        image: UploadFile = File(...),
-        redis: Redis = Depends(get_redis),
-        get_triton_model: Callable[[str], Union[TritonClient, None]] = Depends(get_triton),
+    response: Response,
+    model: str = "mnist",
+    image: UploadFile = File(...),
+    redis: Redis = Depends(get_redis),
+    get_triton_model: Callable[[str, str], Union[TritonClient, None]] = Depends(get_triton),
 ) -> CVResponse:
     if redis is None:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return CVResponse(status="error", message="Redis unavailable")
 
-    triton_model = get_triton_model(model)
+    triton_model = get_triton_model(model, "output")
     if triton_model is None:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return CVResponse(status="error", message="Triton unavailable")
@@ -52,7 +52,7 @@ async def predict(
     # Prepare image for Triton model
     img_np = np.array(img).astype(np.float32)
     logger.error(f"Image shape: {img_np.shape}")
-    img_np = np.transpose(img_np, (2, 0, 1)) # Change image layout to CHW
+    img_np = np.transpose(img_np, (2, 0, 1))  # Change image layout to CHW
     img_np = np.expand_dims(img_np, axis=0)  # Add batch dimension if required
 
     # Get predictions from Triton model and save them
@@ -67,6 +67,57 @@ async def predict(
     logger.error(f"Predictions: {predict}")
     redis.rpush(redis_key, *map(str, predict))
     return CVResponse(payload=predict)
+
+
+async def predict_house_price(
+    response: Response,
+    MedInc: float,
+    HouseAge: float,
+    AveRooms: float,
+    AveBedrms: float,
+    Population: float,
+    AveOccup: float,
+    Latitude: float,
+    Longitude: float,
+    model: str = "linreg",
+    redis: Redis = Depends(get_redis),
+    get_triton_model: Callable[[str, str], Union[TritonClient, None]] = Depends(get_triton),
+) -> CVResponse:
+    if redis is None:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return CVResponse(status="error", message="Redis unavailable")
+
+    triton_model = get_triton_model(model, "variable")
+    if triton_model is None:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return CVResponse(status="error", message="Triton unavailable")
+
+    # Create feature array
+    feature_array = np.array(
+        [
+            [
+                MedInc,
+                HouseAge,
+                AveRooms,
+                AveBedrms,
+                Population,
+                AveOccup,
+                Latitude,
+                Longitude,
+            ]
+        ],
+        dtype=np.float32,
+    )
+
+    # Get predictions from Triton model
+    output = triton_model.predict({"input": feature_array})
+
+    if not output:  # Check if prediction is empty or None
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return CVResponse(status="error", message="Triton failed to process request")
+
+    prediction = output.get("variable", np.array([[]])).astype(float).tolist()[0]
+    return CVResponse(status="success", payload=prediction)
 
 
 def health_check():
@@ -84,6 +135,13 @@ def register_routes(app: FastAPI) -> None:
     app.add_api_route(
         "/predict",
         predict,
+        methods=["POST"],
+        description="Get prediction from the model.",
+        response_model=CVResponse,
+    )
+    app.add_api_route(
+        "/predict_house_price",
+        predict_house_price,
         methods=["POST"],
         description="Get prediction from the model.",
         response_model=CVResponse,

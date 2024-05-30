@@ -1,0 +1,27 @@
+name: "linreg"
+platform: "onnxruntime_onnx"
+max_batch_size: 32
+input [
+    {
+        name: "input"
+        data_type: TYPE_FP32
+        dims: [ 8 ]
+    }
+]
+output [
+    {
+        name: "variable"
+        data_type: TYPE_FP32
+        dims: [ 1 ]
+    }
+]
+dynamic_batching {
+    preferred_batch_size: [1, 2, 4, 8, 16, 32]
+    max_queue_delay_microseconds: 30000
+}
+instance_group [
+    {
+        count: 8
+        kind: KIND_CPU
+    }
+]

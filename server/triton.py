@@ -34,9 +34,7 @@ class TritonClientSettings:
     ) -> Union[triton_http.InferenceServerClient, triton_grpc.InferenceServerClient]:
         if self.parsed_url.scheme.startswith("http"):
             ssl_context_factory = (
-                lambda: ssl.create_default_context(
-                    cafile=self.cert_path
-                )
+                lambda: ssl.create_default_context(cafile=self.cert_path)
                 if self.secure
                 else None
             )
@@ -96,8 +94,7 @@ class TritonClient:
 
     def _prepare_inputs(self, inputs: dict[str, np.ndarray]):
         infer_inputs = {
-            k: self._infer_input(k, v.shape, "FP32")
-            for k, v in inputs.items()
+            k: self._infer_input(k, v.shape, "FP32") for k, v in inputs.items()
         }
         for k, v in inputs.items():
             infer_inputs[k].set_data_from_numpy(v)
@@ -113,19 +110,23 @@ class TritonClient:
     def predict(self, inputs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         infer_inputs = self._prepare_inputs(inputs)
         infer_outputs = self._get_outputs()
-        try:
-            results = self._client.infer(
-                model_name=self.settings.model,
-                model_version=self.settings.version,
-                inputs=infer_inputs,
-                outputs=infer_outputs,
-            )
-        except (
-            triton_http.InferenceServerException,
-            triton_grpc.InferenceServerException,
-        ) as e:
-            logger.error(f"Request to triton server failed: {repr(e)}", exc_info=True)
-            return {}
+
+        logger.error(f"Inputs: {infer_inputs}")
+        logger.error(f"Outputs: {infer_outputs}")
+
+        # try:
+        results = self._client.infer(
+            model_name=self.settings.model,
+            model_version=self.settings.version,
+            inputs=infer_inputs,
+            outputs=infer_outputs,
+        )
+        # except (
+        #     triton_http.InferenceServerException,
+        #     triton_grpc.InferenceServerException,
+        # ) as e:
+        #     logger.error(f"Request to triton server failed: {repr(e)}", exc_info=True)
+        #     return {}
         return {key: results.as_numpy(key) for key in self._output_keys}
 
     def ping(
