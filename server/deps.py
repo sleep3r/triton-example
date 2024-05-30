@@ -24,7 +24,7 @@ def get_triton() -> Callable[[str], TritonClient | None]:
         if url is None:
             return None
         settings = TritonClientSettings(url=url, model=model, version="1")
-        client = TritonClient(settings, output_keys=["output_class"])
+        client = TritonClient(settings, output_keys=["output"])
         error, ok = client.ping()
         if not ok:
             logger.error(error)

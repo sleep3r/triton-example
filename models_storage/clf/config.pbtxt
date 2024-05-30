@@ -5,7 +5,7 @@ input [
     {
         name: "input"
         data_type: TYPE_FP32
-        dims: [3, 224, 224]  # assuming input image size is 224x224 with 3 color channels (RGB)
+        dims: [3, -1, -1]  # assuming input image size is 224x224 with 3 color channels (RGB)
     }
 ]
 output [

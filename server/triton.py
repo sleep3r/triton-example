@@ -12,50 +12,6 @@ import tritonclient.http as triton_http
 
 @dataclass
 class TritonClientSettings:
-    """
-    Setting for Triton Clients.
-
-    Supports both http(s) and grpc.
-
-    Parameters
-    ----------
-    url: str
-        The inference server name, port and optional base path
-        in the following format: scheme://host[:port]/<base-path>,
-        e.g. http://localhost:8000, grpc://triton:443.
-    model: str
-        The name of the model to check for readiness.
-    version: str
-        The version of the model to check for readiness. The default value
-        is an empty string which means then the server will choose a version
-        based on the model and internal policy.
-    secure: bool
-        If True, channels the requests to encrypted https scheme.
-        Some improper settings may cause connection to prematurely
-        terminate with an unsuccessful handshake. See
-        `ssl_context_factory` option for using secure default
-        settings. It is always True for https connection. Defaults to False.
-    cert_path: Optional[Path]
-        File holding the PEM-encoded root certificates as a byte
-        string, or None to retrieve them from a default location
-        chosen by gRPC runtime. The option is ignored if `ssl`
-        is False. Defaults to None.
-    verbose: bool
-        If True generate verbose output. Defaults to False.
-    concurrency: int
-        The number of connections to create for this client.
-        Defaults to 1.
-    connection_timeout: float
-        The timeout value for the connection. Defaults to 60.0.
-    network_timeout: float
-        The timeout value for the network. Defaults to 60.0.
-    max_greenlets: Optional[int]
-        Determines the maximum allowed number of worker greenlets
-        for handling asynchronous inference requests. Defaults to
-        is None, which means there will be no restriction on the
-        number of greenlets created.
-    """
-
     url: str
     model: str
     version: str
@@ -76,24 +32,11 @@ class TritonClientSettings:
     def get_inference_client(
         self,
     ) -> Union[triton_http.InferenceServerClient, triton_grpc.InferenceServerClient]:
-        """
-        Get InferenceClient for the scheme.
-
-        Returns
-        -------
-        Union[triton_http.InferenceServerClient, triton_grpc.InferenceServerClient]
-            InfernceSeverClient depending on the protocol.
-
-        Raises
-        ------
-        ValueError
-            If the scheme is not http(s) or grpc.
-        """
         if self.parsed_url.scheme.startswith("http"):
             ssl_context_factory = (
                 lambda: ssl.create_default_context(
                     cafile=self.cert_path
-                )  # pylint: disable=C3001
+                )
                 if self.secure
                 else None
             )
@@ -121,19 +64,6 @@ class TritonClientSettings:
     def get_infer_input(
         self,
     ) -> Union[Type[triton_http.InferInput], Type[triton_grpc.InferInput]]:
-        """
-        Get InferInput for the scheme.
-
-        Returns
-        -------
-        Union[triton_http.InferInput, triton_grpc.InferInput]
-            InferInput depending on the protocol.
-
-        Raises
-        ------
-        ValueError
-            If the scheme is not http(s) or grpc.
-        """
         if self.parsed_url.scheme.startswith("http"):
             return triton_http.InferInput
         if self.parsed_url.scheme == "grpc":
@@ -147,19 +77,6 @@ class TritonClientSettings:
     ) -> Union[
         Type[triton_http.InferRequestedOutput], Type[triton_grpc.InferRequestedOutput]
     ]:
-        """
-        Get InferRequestedOutput for the scheme.
-
-        Returns
-        -------
-        Union[triton_http.InferRequestedOutput, triton_grpc.InferRequestedOutput]
-            InferRequestedOutput depending on the protocol.
-
-        Raises
-        ------
-        ValueError
-            If the scheme is not http(s) or grpc.
-        """
         if self.parsed_url.scheme.startswith("http"):
             return triton_http.InferRequestedOutput
         if self.parsed_url.scheme == "grpc":
@@ -170,18 +87,6 @@ class TritonClientSettings:
 
 
 class TritonClient:
-    """
-    Client is used to perform any kind of communication
-    with the Triton Server using http/grpc protocol (depends on settings).
-
-    Parameters
-    ----------
-    settings: TritonClientSettings
-        Settings to configure Triton Server connection.
-    output_keys: list[str]
-        Output keys to get from the model.
-    """
-
     def __init__(self, settings: TritonClientSettings, output_keys: list[str]) -> None:
         self.settings = settings
         self._client = settings.get_inference_client()
@@ -191,7 +96,7 @@ class TritonClient:
 
     def _prepare_inputs(self, inputs: dict[str, np.ndarray]):
         infer_inputs = {
-            k: self._infer_input(k, [len(v), v[0].shape[-1]], "INT64")
+            k: self._infer_input(k, v.shape, "FP32")
             for k, v in inputs.items()
         }
         for k, v in inputs.items():
@@ -206,21 +111,6 @@ class TritonClient:
         return [self._infer_output(x) for x in self._output_keys]
 
     def predict(self, inputs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
-        """
-        Get predictions from the model for the `inputs`.
-
-        You need to call `as_numpy` function on `predict` output to get predictions as a numpy array.
-
-        Parameters
-        ----------
-        inputs: dict[str, np.ndarray]
-            Dictionary of keys required for the model and tensor inputs.
-
-        Returns
-        -------
-        dict[str, np.ndarray]
-            Dictionary of predictions for `output_keys`.
-        """
         infer_inputs = self._prepare_inputs(inputs)
         infer_outputs = self._get_outputs()
         try:
@@ -240,17 +130,7 @@ class TritonClient:
 
     def ping(
         self,
-    ) -> tuple[Optional[str], bool]:  # pylint: disable=too-many-return-statements
-        """
-        Whether the server is ready for inference.
-
-        Returns
-        -------
-        tuple[Optional[str], bool]
-            Returns a tuple of 2 values:
-            - An error message in case server is not ready. If the server is ready message is None.
-            - Whether server is ready boolean value.
-        """
+    ) -> tuple[Optional[str], bool]:
         if not self._client.is_server_live():
             return "is_server_live failed", False
         if not self._client.is_server_ready():
