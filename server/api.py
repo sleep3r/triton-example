@@ -40,10 +40,10 @@ async def predict(
 
     # Read image and generate hash
     img = Image.open(image.file).convert("RGB")
-    img_hash = hashlib.md5(img.tobytes()).hexdigest()
-    redis_key = f"image:{img_hash}"
 
     # Check saved predictions in Redis
+    img_hash = hashlib.md5(img.tobytes()).hexdigest()
+    redis_key = f"image:{img_hash}"
     probas = redis.lrange(redis_key, 0, -1)
     if probas:
         probas = [float(x) for x in probas]  # Convert Redis records to float
